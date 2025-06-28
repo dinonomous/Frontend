@@ -2,7 +2,7 @@ from typing import Annotated
 from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START
-from config import chat_model
+from config import get_llm_dyn
 
 
 class State(TypedDict):
@@ -13,7 +13,7 @@ graph_builder = StateGraph(State)
 
 
 def chatbot_node(state: State):
-    response = chat_model.invoke(state["messages"])
+    response = get_llm_dyn().invoke(state["messages"])
     return {"messages": [response]}
 
 

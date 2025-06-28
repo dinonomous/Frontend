@@ -20,5 +20,5 @@ app.add_middleware(
 )
 
 app.include_router(chat_router, prefix="/api/chat")
-app.include_router(completion_router, prefix="/api/complete")
+app.include_router(completion_router, prefix="/api/generate")
 app.include_router(model_management, prefix="/api/model")

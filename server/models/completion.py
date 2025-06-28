@@ -5,6 +5,9 @@ from datetime import datetime
 class GenerateCompletionRequest(BaseModel):
     model: str
     prompt: Optional[str] = None
+    require_stream: Optional[bool] = True
+    is_chat: Optional[bool] = True
+    temperature: Optional[float] = None
     suffix: Optional[str] = None
     images: Optional[List[str]] = None
     think: Optional[bool] = False
