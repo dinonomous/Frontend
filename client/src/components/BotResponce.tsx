@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, AlertCircle, Copy, Check, Code, Zap, RotateCcw, Square } from 'lucide-react';
+import { streamApiRequest } from '@/api/ollama';
+import type { StreamEvent, OnStreamEvent } from '@/api/ollama';
 
 interface GenerateCompletionRequest {
   model: string;
@@ -16,13 +18,6 @@ interface BotResponseProps {
   onError?: (error: string) => void;
   className?: string;
   chat?: boolean;
-}
-
-interface StreamEvent {
-  event: 'start' | 'token' | 'code_start' | 'code_token' | 'code_end' | 'progress' | 'metadata' | 'error' | 'done';
-  data: Record<string, any>;
-  id?: string;
-  retry?: number;
 }
 
 interface CodeBlock {
@@ -195,53 +190,14 @@ const BotResponse: React.FC<BotResponseProps> = ({
         is_chat: chat
       };
 
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/generate/stream`);
+      const url = (`${process.env.NEXT_PUBLIC_API_URL || '/api'}/generate/stream`);
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
-        body: JSON.stringify(payload),
-        signal: abortControllerRef.current.signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      if (!response.body) {
-        throw new Error('No response body available');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-
-          if (trimmedLine.startsWith('data: ')) {
-            const eventData = trimmedLine.slice(6);
-            const event = parseSSEEvent(eventData);
-            if (event) {
-              handleStreamEvent(event);
-            }
-          }
-        }
-      }
+      await streamApiRequest(
+        url,
+        { ...request, stream: true, is_chat: chat },
+        handleStreamEvent,
+        abortControllerRef.current?.signal
+      );
 
     } catch (err: any) {
       if (err.name === 'AbortError') return;

@@ -37,64 +37,80 @@ export const generateCompletion = async (
   return response.data;
 };
 
-export interface StreamingCompletionResponse {
-  model: string;
-  created_at: number;
-  response: string;
-  done: boolean;
-  error?: string;
+export interface StreamEvent {
+  event: string;
+  data: any;
+  id?: string;
+  retry?: number;
 }
 
-export const generateCompletionStream = async (
-    payload: GenerateCompletionRequest,
-    onChunk: (chunk: StreamingCompletionResponse) => void,
-    onError?: (error: Error) => void
-): Promise<void> => {
-    try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/generate/stream`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ ...payload, stream: true }),
-        });
+export type OnStreamEvent = (event: StreamEvent) => void;
 
-        if (!response.body) {
-            throw new Error('No response body available');
+/**
+ * Generic SSE POST streaming utility.
+ * @param url - endpoint URL
+ * @param payload - JSON payload
+ * @param onEvent - handler called per parsed event
+ * @param abortSignal - optional AbortSignal to cancel
+ */
+export async function streamApiRequest(
+  url: string,
+  payload: unknown,
+  onEvent: OnStreamEvent,
+  abortSignal?: AbortSignal
+): Promise<void> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+    signal: abortSignal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  if (!response.body) {
+    throw new Error('No response body');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (trimmed.startsWith('data:')) {
+        const jsonStr = trimmed.slice(5).trim();
+        try {
+          const data = JSON.parse(jsonStr);
+          const event: StreamEvent = {
+            event: data.event || 'token',
+            data,
+            id: data.id,
+            retry: data.retry,
+          };
+          onEvent(event);
+        } catch (e) {
+          console.warn('Invalid SSE JSON:', jsonStr);
         }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    try {
-                        const data: StreamingCompletionResponse = JSON.parse(line.slice(6));
-                        onChunk(data);
-                        if (data.done) return;
-                    } catch (e) {
-                        console.warn('Failed to parse SSE data:', line);
-                    }
-                }
-            }
-        }
-    } catch (error) {
-        if (onError) {
-            onError(error as Error);
-        } else {
-            throw error;
-        }
+      }
     }
-};
+  }
+}
 
 // -------- Chat Completion --------
 
