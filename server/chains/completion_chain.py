@@ -1,11 +1,11 @@
 import asyncio
 import time
 from typing import Annotated, Dict, Any, Optional, List
-from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START
-from langgraph.graph.message import add_messages
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.output_parsers import JsonOutputParser
+from typing_extensions import TypedDict  # type: ignore
+from langgraph.graph import StateGraph, START  # type: ignore
+from langgraph.graph.message import add_messages  # type: ignore
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage  # type: ignore
+from langchain_core.output_parsers import JsonOutputParser  # type: ignore
 from config import get_llm_dyn
 from utils.logger import get_logger
 from concurrent.futures import ThreadPoolExecutor

@@ -4,13 +4,13 @@ import { Bot, User, Copy, Check } from 'lucide-react';
 import type { Message } from "../../types";
 import { useModel } from "@/context/ModelContext";
 
-export const MessageComponent = ({ message, onCopy }: { message: Message; onCopy: (content: string) => void }) => {
+export const MessageComponent = ({ message, onCopyAction }: { message: Message; onCopyAction: (content: string) => void }) => {
     const [copied, setCopied] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const { model } = useModel();
 
     const handleCopy = () => {
-        onCopy(message.content);
+        onCopyAction(message.content);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };

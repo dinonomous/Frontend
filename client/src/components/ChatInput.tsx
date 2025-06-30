@@ -4,11 +4,11 @@ import { useModel } from '@/context/ModelContext';
 import { Sparkles, Send } from 'lucide-react';
 
 type ChatInputProps = {
-  onSend: (message: string, model: string) => void;
+  onSendAction: (message: string) => void;
   disabled?: boolean;
 };
 
-export const ChatInput = ({ onSend, disabled }: { onSend: (message: string) => void; disabled?: boolean }) => {
+export const ChatInput = ({ onSendAction, disabled }: ChatInputProps) => {
     const { model } = useModel();
     const [message, setMessage] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -16,7 +16,7 @@ export const ChatInput = ({ onSend, disabled }: { onSend: (message: string) => v
 
     const handleSubmit = () => {
         if (message.trim() && !disabled) {
-            onSend(message.trim());
+            onSendAction(message.trim());
             setMessage('');
         }
     };

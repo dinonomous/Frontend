@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from langchain_ollama.chat_models import ChatOllama
+from langchain_ollama import ChatOllama
 from langchain_ollama import OllamaLLM
 from functools import lru_cache
 import logging

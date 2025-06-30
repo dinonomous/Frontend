@@ -9,7 +9,6 @@ import type { GenerateCompletionRequest } from '@/api/ollama';
 import ChatBot from "@/pages/Chat";
 
 export default function Home() {
-
   return (
     <ModelProvider>
       <div className="">

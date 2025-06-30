@@ -79,17 +79,6 @@ export const ModelSelector = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center gap-2">
-        <label className="text-sm text-gray-500">Model:</label>
-        <div className="bg-transparent border border-red-300 rounded px-2 py-1 text-sm text-red-600">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">

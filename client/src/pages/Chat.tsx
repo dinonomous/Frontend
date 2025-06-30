@@ -171,7 +171,7 @@ export default function ChatBot() {
                 <main className="flex-1 overflow-y-auto px-6">
                     <div className="max-w-3xl mx-auto space-y-6 py-4">
                         {messages.map(message => (
-                            <MessageComponent key={message.id} message={message} onCopy={handleCopyMessage} />
+                            <MessageComponent key={message.id} message={message} onCopyAction={handleCopyMessage} />
                         ))}
                         {isLoading && (
                             <div className="flex items-start gap-3 p-3 animate-pulse">
@@ -195,7 +195,7 @@ export default function ChatBot() {
                 {/* Input */}
                 <footer className="px-6 py-2">
                     <div className="max-w-3xl mx-auto">
-                        <ChatInput onSend={handleSendMessage} disabled={isLoading} />
+                        <ChatInput onSendAction={handleSendMessage} disabled={isLoading} />
                     </div>
                 </footer>
             </div>
