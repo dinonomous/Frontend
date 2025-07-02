@@ -7,7 +7,6 @@ import { ChatInput } from '@/components/ChatInput';
 import ChatBot from "@/pages/Chat";
 
 export default function Home() {
-
   return (
     <ModelProvider>
       <div className="">

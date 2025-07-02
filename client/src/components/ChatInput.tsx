@@ -3,11 +3,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useModel } from '@/context/ModelContext';
 import { Sparkles, Send, Square } from 'lucide-react';
 
-type ChatInputProps = {
-  onSend: (message: string, model: string) => void;
-  disabled?: boolean;
-};
-
 export const ChatInput = ({ onSend, disabled, handleCancelRequest }: { onSend: (message: string) => void; disabled?: boolean; handleCancelRequest:()=> void }) => {
     const { model } = useModel();
     const [message, setMessage] = useState('');

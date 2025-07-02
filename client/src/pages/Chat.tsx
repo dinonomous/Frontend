@@ -165,7 +165,7 @@ export default function ChatBot() {
                 <main className="flex-1 custom-scroll w-full overflow-x-hidden px-6 mx-auto h-full">
                     <div className="max-w-3xl mx-auto space-y-6 py-4">
                         {messages.map(message => (
-                            <MessageComponent key={message.id} message={message} onCopy={handleCopyMessage} />
+                            <MessageComponent key={message.id} message={message} onCopyAction={handleCopyMessage} />
                         ))}
                         {isLoading && (
                             <div className="flex items-start gap-3 p-3 animate-pulse">

@@ -21,7 +21,7 @@ export const MessageComponent = ({
     const [isHovered, setIsHovered] = useState(false);
 
     const handleCopy = () => {
-        onCopy(message.content);
+        // onCopyAction(message.content);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
