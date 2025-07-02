@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { Send, Bot, Settings, Trash2 } from 'lucide-react';
-import { useModel, useTheme } from '@/context/ModelContext';
+import { useModel, useTheme, usePersona } from '@/context/ModelContext';
 import type { Message } from '../../types';
-import { SettingsPanel } from '@/components/Settings';
+import SettingsPanel from '@/components/Settings';
 import { MessageComponent } from '@/components/Message';
 import { StreamEvent } from '@/api/ollama';
 import { streamApiRequest } from '@/api/ollama';
@@ -11,17 +11,31 @@ import { IconButton } from '@/components/IconButton';
 import { DotLoader } from '@/components/DotLoader';
 import ChatSidePanel from '@/components/SidePannel';
 
+// Updated interface to match your new schema
+interface GenerateCompletionRequest {
+  model: string;
+  persona?: number;
+  query: string;
+  stream?: boolean;
+  language?: string; // defaults to "en"
+  chat?: boolean;
+  image?: string | string[];
+  file?: string | string[];
+  think?: boolean;
+  keepalive?: string | number;
+}
+
 // Main Chat Component
 export default function ChatBot() {
     const { model } = useModel();
-    console.log(model)
+    const { selectedPersona, selectedPersonaData } = usePersona();
     const { theme } = useTheme();
     const [messages, setMessages] = useState<Message[]>([
     ]);
     const [isLoading, setIsLoading] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
     const [abortController, setAbortController] = useState<AbortController | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,8 +44,6 @@ export default function ChatBot() {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
-
-
 
     const handleSendMessage = async (content: string) => {
         // Cancel any ongoing request
@@ -66,14 +78,25 @@ export default function ChatBot() {
 
         try {
             const url = (`${process.env.NEXT_PUBLIC_API_URL || '/api'}/generate/stream`);
-            // Replace '/api/chat/stream' with your actual streaming endpoint
+            
+            // Updated request body to match new interface
+            const requestBody: GenerateCompletionRequest = {
+                model: model,
+                query: content,
+                stream: true,
+                language: "en",
+                chat: true,
+                think: false,
+                // Add other optional fields as needed:
+                persona: selectedPersonaData?.id,
+                // image: undefined,
+                // file: undefined,
+                // keepalive: undefined,
+            };
+
             await streamApiRequest(
                 url,
-                {
-                    message: content,
-                    model: model,
-                    stream: true
-                },
+                requestBody,
                 (event: StreamEvent) => {
                     // Handle different event types
                     if (event.event === 'token' || event.event === 'content') {
@@ -86,8 +109,7 @@ export default function ChatBot() {
                     } else if (event.event === 'error') {
                         throw new Error(event.data.message || 'Streaming error occurred');
                     } else if (event.event === 'done') {
-                        // Stream completed
-                        console.log('Stream completed');
+                        setIsLoading(false);
                     }
                 },
                 newAbortController.signal
@@ -115,21 +137,6 @@ export default function ChatBot() {
         }
     };
 
-    const handleClearChat = () => {
-        // Cancel any ongoing request
-        if (abortController) {
-            abortController.abort();
-        }
-
-        setMessages([{
-            id: '1',
-            content: "Hello! I'm your AI assistant. How can I help you today?",
-            role: 'assistant',
-            timestamp: new Date(),
-            model
-        }]);
-    };
-
     const handleCopyMessage = (content: string) => {
         navigator.clipboard.writeText(content);
     };
@@ -141,34 +148,21 @@ export default function ChatBot() {
     };
 
     return (
-        <div className={`${theme === 'dark' ? 'dark' : ''}`}>
-            <ChatSidePanel />
-            <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300 ease-in-out">
+        <div className={`${theme === 'dark' ? 'dark' : ''} h-screen relative overflow-y-hidden`}>
+            <ChatSidePanel isExpanded={isExpanded} expand={() => setIsExpanded(!isExpanded)} />
+            <div className={`"${isExpanded? "blur-sm" : ""} pl-16 flex flex-col h-screen bg-background text-foreground transition-colors duration-300 ease-in-out"`}>
 
                 {/* Header */}
-                <header className="sticky top-0 z-10 px-6 py-4  backdrop-blur shadow-sm">
+                <header className="h-12 px-4 flex justify-center">
                     <div className="flex items-center justify-between max-w-4xl mx-auto">
                         <div>
-                            <h1 className="text-lg sm:text-xl font-semibold tracking-tight">AI Chat Assistant</h1>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isLoading && (
-                                <button
-                                    onClick={handleCancelRequest}
-                                    className="text-sm px-3 py-1 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition"
-                                >
-                                    Cancel
-                                </button>
-                            )}
-                            <IconButton icon={<Trash2 size={18} />} onClick={handleClearChat} label="Clear chat" />
-                            <IconButton icon={<Settings size={18} />} onClick={() => setShowSettings(!showSettings)} label="Settings" />
-                            <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+                            <h1 className="text-lg sm:text-xl font-semibold tracking-tight">{selectedPersona}</h1>
                         </div>
                     </div>
                 </header>
 
                 {/* Chat messages */}
-                <main className="flex-1 overflow-y-auto px-6">
+                <main className="flex-1 custom-scroll w-full overflow-x-hidden px-6 mx-auto h-full">
                     <div className="max-w-3xl mx-auto space-y-6 py-4">
                         {messages.map(message => (
                             <MessageComponent key={message.id} message={message} onCopy={handleCopyMessage} />
@@ -195,7 +189,7 @@ export default function ChatBot() {
                 {/* Input */}
                 <footer className="px-6 py-2">
                     <div className="max-w-3xl mx-auto">
-                        <ChatInput onSend={handleSendMessage} disabled={isLoading} />
+                        <ChatInput onSend={handleSendMessage} disabled={isLoading} handleCancelRequest={handleCancelRequest} />
                     </div>
                 </footer>
             </div>

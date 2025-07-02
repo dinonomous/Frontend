@@ -1,6 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { LocalModel } from '../api/ollama';
+import { fetchPersonas, type Persona } from '../api/persona';
+import { listModels } from '../api/ollama';
 
 type Theme = 'light' | 'dark';
 
@@ -22,6 +24,18 @@ type ModelContextType = {
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   isDarkMode: boolean;
+
+  // Persona-related state
+  personas: Persona[];
+  selectedPersona: string;
+  setSelectedPersona: (persona: string) => void;
+  selectedPersonaData: Persona | null;
+  isPersonasLoading: boolean;
+  personasError: string | null;
+  refreshPersonas: () => Promise<void>;
+
+  // Loading states
+  isInitializing: boolean;
 };
 
 const ModelContext = createContext<ModelContextType | null>(null);
@@ -33,20 +47,96 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [loadedModels, setLoadedModels] = useState<Set<string>>(new Set());
   
-  // Theme state with system preference detection
+  // Persona state
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [selectedPersona, setSelectedPersona] = useState('general');
+  const [isPersonasLoading, setIsPersonasLoading] = useState(true);
+  const [personasError, setPersonasError] = useState<string | null>(null);
+
+  const [isInitializing, setIsInitializing] = useState(true);
   const [theme, setThemeState] = useState<Theme>(() => {
-    // Check if we're in browser environment
+
     if (typeof window !== 'undefined') {
-      // Try to get saved theme from localStorage
       const savedTheme = localStorage.getItem('theme') as Theme;
       if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
         return savedTheme;
       }
-      // Fallback to system preference
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return 'light';
   });
+
+  // Load personas function
+  const loadPersonas = useCallback(async () => {
+    try {
+      setIsPersonasLoading(true);
+      setPersonasError(null);
+      const fetchedPersonas = await fetchPersonas();
+      setPersonas(fetchedPersonas);
+
+      if (!fetchedPersonas.some(p => p.value === selectedPersona)) {
+        const defaultPersona = fetchedPersonas.find(p => p.value === 'general') || fetchedPersonas[0];
+        if (defaultPersona) {
+          setSelectedPersona(defaultPersona.value);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load personas:', error);
+      setPersonasError(error instanceof Error ? error.message : 'Failed to load personas');
+    } finally {
+      setIsPersonasLoading(false);
+    }
+  }, [selectedPersona]);
+
+  // Refresh personas function
+  const refreshPersonas = useCallback(async () => {
+    await loadPersonas();
+  }, [loadPersonas]);
+
+  // Load models function (you can implement this based on your API)
+  const loadModels = useCallback(async () => {
+    try {
+      const response = await listModels()
+      setModel(response.models[0].name)
+      console.log('Loading models...');
+    } catch (error) {
+      console.error('Failed to load models:', error);
+    }
+  }, []);
+
+  // Initialize data on mount
+  useEffect(() => {
+    const initializeData = async () => {
+      setIsInitializing(true);
+      
+      // Load personas and models in parallel
+      await Promise.all([
+        loadPersonas(),
+        loadModels()
+      ]);
+      
+      setIsInitializing(false);
+    };
+
+    initializeData();
+  }, [loadPersonas, loadModels]);
+
+  // Restore selected persona from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPersona = localStorage.getItem('selectedPersona');
+      if (savedPersona && personas.some(p => p.value === savedPersona)) {
+        setSelectedPersona(savedPersona);
+      }
+    }
+  }, [personas]);
+
+  // Save selected persona to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedPersona) {
+      localStorage.setItem('selectedPersona', selectedPersona);
+    }
+  }, [selectedPersona]);
 
   // Model management functions
   const addLoadedModel = useCallback((model: string) => {
@@ -84,6 +174,14 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
   }, [theme, setTheme]);
 
   const isDarkMode = theme === 'dark';
+
+  // Persona management functions
+  const handleSetSelectedPersona = useCallback((persona: string) => {
+    setSelectedPersona(persona);
+  }, []);
+
+  // Get selected persona data
+  const selectedPersonaData = personas.find(p => p.value === selectedPersona) || null;
 
   // Apply theme to document
   useEffect(() => {
@@ -133,7 +231,19 @@ export const ModelProvider = ({ children }: { children: React.ReactNode }) => {
     theme,
     setTheme,
     toggleTheme,
-    isDarkMode
+    isDarkMode,
+
+    // Persona-related
+    personas,
+    selectedPersona,
+    setSelectedPersona: handleSetSelectedPersona,
+    selectedPersonaData,
+    isPersonasLoading,
+    personasError,
+    refreshPersonas,
+
+    // Loading states
+    isInitializing
   };
 
   return (
@@ -155,4 +265,27 @@ export const useModel = () => {
 export const useTheme = () => {
   const { theme, setTheme, toggleTheme, isDarkMode } = useModel();
   return { theme, setTheme, toggleTheme, isDarkMode };
+};
+
+// Convenience hook for persona-only operations
+export const usePersona = () => {
+  const { 
+    personas, 
+    selectedPersona, 
+    setSelectedPersona, 
+    selectedPersonaData, 
+    isPersonasLoading, 
+    personasError, 
+    refreshPersonas 
+  } = useModel();
+  
+  return { 
+    personas, 
+    selectedPersona, 
+    setSelectedPersona, 
+    selectedPersonaData, 
+    isPersonasLoading, 
+    personasError, 
+    refreshPersonas 
+  };
 };

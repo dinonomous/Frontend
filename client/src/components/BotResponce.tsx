@@ -60,51 +60,49 @@ const BotResponse: React.FC<BotResponseProps> = ({
   const retryCountRef = useRef(0);
   const currentCodeContentRef = useRef('');
   const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingActiveRef = useRef(false);
   const maxRetries = 3;
 
-  // Cleanup function
   const cleanup = useCallback(() => {
-    if (abortControllerRef.current) {
+    if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
       abortControllerRef.current.abort();
-      abortControllerRef.current = null;
     }
-    setIsStreaming(false);
+    abortControllerRef.current = null;
+    streamingActiveRef.current = false;
     setActiveCodeBlock(null);
   }, []);
 
-  // Parse SSE event with better error handling
-  const parseSSEEvent = useCallback((eventData: string): StreamEvent | null => {
-    try {
-      const data = JSON.parse(eventData);
-      return {
-        event: data.event || 'token',
-        data: data,
-        id: data.id,
-        retry: data.retry
-      };
-    } catch (e) {
-      console.warn('Failed to parse SSE event:', eventData);
-      return null;
-    }
-  }, []);
-
-  // Enhanced event handler with code block support
   const handleStreamEvent = useCallback((event: StreamEvent) => {
+
+    if (!streamingActiveRef.current) {
+      return;
+    }
+
     switch (event.event) {
       case 'start':
         setIsStreaming(true);
         setError(null);
+        setIsComplete(false);
         responseBufferRef.current = '';
         setResponse('');
         setCodeBlocks([]);
         setActiveCodeBlock(null);
         retryCountRef.current = 0;
+        streamingActiveRef.current = true;
         break;
 
       case 'token':
         if (event.data.token) {
           responseBufferRef.current += event.data.token;
           setResponse(responseBufferRef.current);
+          
+          // Update token count from event data
+          if (event.data.count) {
+            setStats(prev => ({
+              ...prev,
+              tokenCount: event.data.count
+            }));
+          }
         }
         break;
 
@@ -136,16 +134,16 @@ const BotResponse: React.FC<BotResponseProps> = ({
       case 'progress':
         setStats(prev => ({
           ...prev,
-          tokenCount: event.data.token_count || 0,
+          tokenCount: event.data.count || prev.tokenCount,
           tokensPerSecond: event.data.tokens_per_second || 0,
-          elapsedTime: event.data.elapsed_time || 0
+          elapsedTime: event.data.elapsed || 0
         }));
         break;
 
       case 'metadata':
         setStats(prev => ({
           ...prev,
-          totalDuration: event.data.total_duration,
+          totalDuration: event.data.duration,
           tokensPerSecond: event.data.tokens_per_second || prev.tokensPerSecond,
           codeBlocksDetected: event.data.code_blocks_detected || 0
         }));
@@ -157,19 +155,26 @@ const BotResponse: React.FC<BotResponseProps> = ({
       case 'done':
         setIsStreaming(false);
         setIsComplete(true);
-        cleanup();
-        onComplete?.(responseBufferRef.current.trim(), codeBlocks);
+        streamingActiveRef.current = false;
+        
+        // Call onComplete with current code blocks
+        const finalResponse = responseBufferRef.current.trim();
+        const finalCodeBlocks = codeBlocks.length > 0 ? codeBlocks : [];
+        onComplete?.(finalResponse, finalCodeBlocks);
         break;
 
       case 'error':
+        console.error('Stream error:', event.data);
         const errorMsg = event.data.error || 'Unknown streaming error';
         setError(errorMsg);
         setIsStreaming(false);
-        cleanup();
+        streamingActiveRef.current = false;
         onError?.(errorMsg);
         break;
+
+      default:
     }
-  }, [cleanup, onComplete, onError, codeBlocks]);
+  }, [onComplete, onError, codeBlocks]);
 
   // Start streaming with enhanced error handling
   const startStreaming = useCallback(async () => {
@@ -181,44 +186,56 @@ const BotResponse: React.FC<BotResponseProps> = ({
     try {
       setIsStreaming(true);
       setError(null);
+      setIsComplete(false);
+      streamingActiveRef.current = true;
 
+      // Clean up any existing controller
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
       abortControllerRef.current = new AbortController();
 
-      const payload = {
-        ...request,
-        stream: true,
-        is_chat: chat
-      };
-
-      const url = (`${process.env.NEXT_PUBLIC_API_URL || '/api'}/generate/stream`);
+      const url = `${process.env.NEXT_PUBLIC_API_URL || '/api'}/generate/stream`;
 
       await streamApiRequest(
         url,
         { ...request, stream: true, is_chat: chat },
         handleStreamEvent,
-        abortControllerRef.current?.signal
+        abortControllerRef.current.signal
       );
 
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      console.error('Streaming error caught:', err);
+      
+      if (err.name === 'AbortError') {
+        return;
+      }
 
-      console.error('Streaming error:', err);
       retryCountRef.current++;
       
-      if (retryCountRef.current < maxRetries) {
-        setError(`Connection lost. Retrying... (${retryCountRef.current}/${maxRetries})`);
-        setTimeout(startStreaming, 1000 * retryCountRef.current);
+      if (retryCountRef.current < maxRetries && streamingActiveRef.current) {
+        const retryMsg = `Connection lost. Retrying... (${retryCountRef.current}/${maxRetries})`;
+        setError(retryMsg);
+        setTimeout(() => {
+          if (streamingActiveRef.current) {
+            startStreaming();
+          }
+        }, 1000 * retryCountRef.current);
       } else {
         const errorMsg = err.message || 'Unknown streaming error';
         setError(errorMsg);
         setIsStreaming(false);
+        streamingActiveRef.current = false;
         onError?.(errorMsg);
       }
     }
-  }, [request, chat, handleStreamEvent, parseSSEEvent, onError]);
+  }, [request, chat, handleStreamEvent, onError]);
 
   // Stop streaming
   const stopStreaming = useCallback(() => {
+    streamingActiveRef.current = false;
+    setIsStreaming(false);
     cleanup();
     setIsComplete(true);
   }, [cleanup]);
@@ -238,6 +255,7 @@ const BotResponse: React.FC<BotResponseProps> = ({
   const retryStreaming = useCallback(() => {
     retryCountRef.current = 0;
     setIsComplete(false);
+    setError(null);
     startStreaming();
   }, [startStreaming]);
 
@@ -248,11 +266,15 @@ const BotResponse: React.FC<BotResponseProps> = ({
     }
   }, [response]);
 
-  // Start streaming on mount
+  // Start streaming on mount - but only once
   useEffect(() => {
     startStreaming();
-    return cleanup;
-  }, []);
+    
+    return () => {
+      streamingActiveRef.current = false;
+      cleanup();
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   // Format time display
   const formatTime = (seconds: number): string => {

@@ -1,19 +1,16 @@
 import api from '../utils/axios';
 
-export interface GenerateCompletionRequest {
+interface GenerateCompletionRequest {
   model: string;
-  prompt?: string;
-  suffix?: string;
-  images?: string[];
-  think?: boolean;
-  format?: 'json' | Record<string, any>;
-  options?: Record<string, any>;
-  system?: string;
-  template?: string;
+  persona?: number;
+  query: string;
   stream?: boolean;
-  raw?: boolean;
-  keep_alive?: string | number;
-  context?: number[];
+  language?: string; // defaults to "en"
+  chat?: boolean;
+  image?: string | string[];
+  file?: string | string[];
+  think?: boolean;
+  keepalive?: string | number;
 }
 
 export interface GenerateCompletionResponse {
@@ -90,24 +87,58 @@ export async function streamApiRequest(
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
+    // Process lines to build complete SSE events
+    let currentEvent: Partial<StreamEvent> = {};
+    
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || trimmed === 'data: [DONE]') continue;
-      if (trimmed.startsWith('data:')) {
-        const jsonStr = trimmed.slice(5).trim();
-        try {
-          const data = JSON.parse(jsonStr);
-          const event: StreamEvent = {
-            event: data.event || 'token',
-            data,
-            id: data.id,
-            retry: data.retry,
-          };
-          onEvent(event);
-        } catch (e) {
-          console.warn('Invalid SSE JSON:', jsonStr);
+      
+      // Skip empty lines and [DONE] markers
+      if (!trimmed || trimmed === 'data: [DONE]') {
+        // If we have a complete event, send it
+        if (currentEvent.event && currentEvent.data !== undefined) {
+          onEvent(currentEvent as StreamEvent);
+          currentEvent = {};
         }
+        continue;
       }
+      
+      // Parse event field
+      if (trimmed.startsWith('event:')) {
+        currentEvent.event = trimmed.slice(6).trim();
+        continue;
+      }
+      
+      // Parse data field
+      if (trimmed.startsWith('data:')) {
+        const dataStr = trimmed.slice(5).trim();
+        
+        try {
+          currentEvent.data = JSON.parse(dataStr);
+          
+        } catch (e) {
+          // If JSON parsing fails, treat as string
+          currentEvent.data = dataStr;
+        }
+        continue;
+      }
+      
+      // Parse id field
+      if (trimmed.startsWith('id:')) {
+        currentEvent.id = trimmed.slice(3).trim();
+        continue;
+      }
+      
+      // Parse retry field
+      if (trimmed.startsWith('retry:')) {
+        currentEvent.retry = parseInt(trimmed.slice(6).trim(), 10);
+        continue;
+      }
+    }
+    
+    // Send any remaining complete event
+    if (currentEvent.event && currentEvent.data !== undefined) {
+      onEvent(currentEvent as StreamEvent);
     }
   }
 }

@@ -1,14 +1,14 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
 import { useModel } from '@/context/ModelContext';
-import { Sparkles, Send } from 'lucide-react';
+import { Sparkles, Send, Square } from 'lucide-react';
 
 type ChatInputProps = {
   onSend: (message: string, model: string) => void;
   disabled?: boolean;
 };
 
-export const ChatInput = ({ onSend, disabled }: { onSend: (message: string) => void; disabled?: boolean }) => {
+export const ChatInput = ({ onSend, disabled, handleCancelRequest }: { onSend: (message: string) => void; disabled?: boolean; handleCancelRequest:()=> void }) => {
     const { model } = useModel();
     const [message, setMessage] = useState('');
     const [isFocused, setIsFocused] = useState(false);
@@ -81,8 +81,9 @@ export const ChatInput = ({ onSend, disabled }: { onSend: (message: string) => v
                                 
                                 {/* Send button */}
                                 <button
-                                    onClick={handleSubmit}
-                                    disabled={!canSend}
+                                    onClick={!canSend ? handleCancelRequest :handleSubmit}
+                                    // disabled={!canSend}
+
                                     className={`
                                         absolute bottom-3 right-3 p-2.5 rounded-xl
                                         transition-all duration-200 ease-out
@@ -92,7 +93,8 @@ export const ChatInput = ({ onSend, disabled }: { onSend: (message: string) => v
                                         }
                                     `}
                                 >
-                                    <Send size={18} className={canSend ? 'animate-pulse' : ''} />
+                                    {!canSend? <Square size={18} /> : <Send size={18} className={canSend ? 'animate-pulse' : ''} />}
+                                    
                                 </button>
                             </div>
                         </div>

@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.chat import chat_router
-from routes.completion import completion_router
+from routes.generate import completion_router
 from routes.model_mgmt import model_management
+from routes.persona import persona
 
 app = FastAPI()
 
@@ -19,6 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat_router, prefix="/api/chat")
+app.include_router(persona, prefix="/api/personas")
 app.include_router(completion_router, prefix="/api/generate")
 app.include_router(model_management, prefix="/api/model")

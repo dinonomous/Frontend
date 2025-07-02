@@ -3,6 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
+
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -118,5 +120,38 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Thin scrollbar without background, light/dark aware */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* no track background */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #a1a1aa; /* neutral-400 for light mode */
+  border-radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background-color: #52525b; /* neutral-600 for dark mode */
+  }
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #a1a1aa transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  * {
+    scrollbar-color: #52525b transparent;
   }
 }
