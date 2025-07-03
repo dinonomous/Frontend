@@ -8,7 +8,7 @@ OLLAMA_BASE = "http://localhost:11434"
 
 def list_models():
     try:
-        response = requests.get(f"{OLLAMA_BASE}/api/tags")
+        response = requests.get(f"{OLLAMA_BASE}/api/models/tags")
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -18,7 +18,7 @@ def list_models():
 def load_model(model: str):
     try:
         logger.info("Loading model: %s", model)
-        response = requests.post(f"{OLLAMA_BASE}/api/generate", json={"model": model})
+        response = requests.post(f"{OLLAMA_BASE}/api/models/load", json={"model": model})
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -28,7 +28,7 @@ def load_model(model: str):
 def unload_model(model: str):
     try:
         logger.info("Unloading model: %s", model)
-        response = requests.post(f"{OLLAMA_BASE}/api/generate", json={"model": model, "keep_alive": 0})
+        response = requests.post(f"{OLLAMA_BASE}/api/models/unload", json={"model": model})
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -38,7 +38,7 @@ def unload_model(model: str):
 def get_model_info(model: str, verbose: bool = False):
     try:
         logger.info("Getting model info: %s", model)
-        response = requests.post(f"{OLLAMA_BASE}/api/show", json={"model": model, "verbose": verbose})
+        response = requests.post(f"{OLLAMA_BASE}/api/models/info", json={"model": model, "verbose": verbose})
         response.raise_for_status()
         return response.json()
     except Exception as e:
