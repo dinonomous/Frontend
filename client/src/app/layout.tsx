@@ -32,7 +32,6 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ModelProvider>
-            <HeaderWithAuth />
             {children}
           </ModelProvider>
         </AuthProvider>
