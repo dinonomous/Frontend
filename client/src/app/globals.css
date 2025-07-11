@@ -120,6 +120,26 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+  a, button {
+    cursor: pointer;
+  }
+}
+
+/* Persona dropdown menu dark background */
+[data-slot="select-content"] {
+  background-color: #18181b !important; /* Tailwind's neutral-900 */
+  color: #f4f4f5 !important;           /* Tailwind's neutral-100 */
+  backdrop-filter: none !important;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.45);
+  z-index: 1000;
+  /* Remove transparency */
+  opacity: 1 !important;
+}
+
+/* Optional: for dark mode, keep it dark */
+.dark [data-slot="select-content"] {
+  background-color: #18181b !important;
+  color: #f4f4f5 !important;
 }
 
 /* Thin scrollbar without background, light/dark aware */

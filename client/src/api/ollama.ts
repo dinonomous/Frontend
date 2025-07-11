@@ -207,14 +207,13 @@ export const listModels = async (): Promise<{ models: LocalModel[] }> => {
 };
 
 export const loadModel = async (model: string): Promise<GenerateCompletionResponse> => {
-  const response = await api.post('/model/generate', { model });
+  const response = await api.post('/model/load', { model });
   return response.data;
 };
 
 export const unloadModel = async (model: string): Promise<GenerateCompletionResponse> => {
-  const response = await api.post('/model/generate', {
-    model,
-    keep_alive: 0
+  const response = await api.post('/model/unload', {
+    model
   });
   return response.data;
 };
@@ -233,7 +232,7 @@ export const getModelInfo = async (
   model: string,
   verbose = false
 ): Promise<ModelInfoResponse> => {
-  const response = await api.post('/model/show', { model, verbose });
+  const response = await api.post('/model/info', { model, verbose });
   return response.data;
 };
 
