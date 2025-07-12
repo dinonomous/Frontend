@@ -13,7 +13,8 @@ import {
   Palette,
   Calculator,
   Settings,
-  Loader2
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 
 const lucideIcons: Record<string, React.FC<{ className?: string }>> = {
@@ -33,12 +34,13 @@ const lucideIcons: Record<string, React.FC<{ className?: string }>> = {
 
 import { useTheme, usePersona } from '@/context/ModelContext';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -132,12 +134,15 @@ const ChatSidePanel: React.FC<ChatSidePanelProps> = ({ isExpanded, expand }) => 
             </Alert>
           )}
 
-          {/* Persona Select */}
+          {/* Persona Dropdown */}
           {!isPersonasLoading && !personasError && personas.length > 0 && (
-            <Select value={selectedPersona} onValueChange={setSelectedPersona}>
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  <div className="flex items-center gap-2 dark:text-neutral-50">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-50"
+                >
+                  <div className="flex items-center gap-2">
                     {selectedPersonaData && (
                       <>
                         {lucideIcons[selectedPersonaData.icon] && React.createElement(lucideIcons[selectedPersonaData.icon], { className: "h-4 w-4" })}
@@ -145,22 +150,39 @@ const ChatSidePanel: React.FC<ChatSidePanelProps> = ({ isExpanded, expand }) => 
                       </>
                     )}
                   </div>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent 
+                className="w-72 dark:bg-neutral-800 dark:border-neutral-700"
+                align="start"
+              >
+                <DropdownMenuLabel className="dark:text-neutral-50">
+                  Choose a Persona
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="dark:bg-neutral-700" />
                 {personas.map((persona) => {
                   const Icon = lucideIcons[persona.icon];
                   return (
-                    <SelectItem key={persona.value} value={persona.value}>
+                    <DropdownMenuItem
+                      key={persona.value}
+                      onClick={() => setSelectedPersona(persona.value)}
+                      className="cursor-pointer dark:text-neutral-50 dark:hover:bg-neutral-700 dark:focus:bg-neutral-700"
+                    >
                       <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4" />}
-                        <span>{persona.label}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{persona.label}</span>
+                          <span className="text-xs text-gray-500 dark:text-neutral-400">
+                            {persona.value}
+                          </span>
+                        </div>
                       </div>
-                    </SelectItem>
+                    </DropdownMenuItem>
                   );
                 })}
-              </SelectContent>
-            </Select>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       )}
@@ -202,14 +224,14 @@ const ChatSidePanel: React.FC<ChatSidePanelProps> = ({ isExpanded, expand }) => 
       {!isExpanded && (
         <div className="p-4">
           <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
-          <Button
+          {/* <Button
             variant="ghost"
             size="sm"
             className="w-10 h-10 p-0 hover:bg-gray-200"
             title="Settings"
           >
             <Settings className="h-4 w-4 text-gray-600" />
-          </Button>
+          </Button> */}
         </div>
       )}
     </div>

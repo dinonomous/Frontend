@@ -4,7 +4,7 @@ from datetime import datetime
 
 class GenerateCompletionRequest(BaseModel):
     model: str
-    persona: Optional[str] = None
+    persona: Optional[int] = None
     query: str
     stream: Optional[bool] = False
     language: Optional[str] = "en"

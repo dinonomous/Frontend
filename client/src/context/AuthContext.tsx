@@ -1,50 +1,59 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { login as apiLogin } from "@/api/auth";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { parseJwt } from "@/utils/parseJwt"; // helper to parse the token payload
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie"; // For reading cookies client-side
 
+// Define the shape of the Auth context
 type AuthContextType = {
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  username: string | null;
   logout: () => void;
   loading: boolean;
-  error: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
+    // On mount, check for tokens in cookies
+    const idToken = Cookies.get("id_token");
+    if (idToken) {
+      try {
+        const parsed = parseJwt(idToken);
+        setUsername(parsed["cognito:username"] || parsed["email"] || null);
+        setIsAuthenticated(true);
+      } catch (err) {
+        console.error("Invalid token", err);
+        setIsAuthenticated(false);
+        setUsername(null);
+      }
+    } else {
+      setIsAuthenticated(false);
+      setUsername(null);
+    }
+    setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await apiLogin(username, password);
-      localStorage.setItem("token", res.access);
-      setIsAuthenticated(true);
-    } catch (err: any) {
-      setError("Invalid username or password");
-      setIsAuthenticated(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const logout = () => {
-    localStorage.removeItem("token");
+    Cookies.remove("id_token");
+    Cookies.remove("access_token");
+    Cookies.remove("refresh_token");
     setIsAuthenticated(false);
+    setUsername(null);
+    router.push("/api/logout"); // You can handle server-side Cognito logout here
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading, error }}>
+    <AuthContext.Provider
+      value={{ isAuthenticated, username, logout, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -54,4 +63,4 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
-};
+}

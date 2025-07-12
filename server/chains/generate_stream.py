@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from config import get_llm_dyn
 from utils.logger import get_logger
 from models.prompts import QUERY_PROCESSOR_PROMPT, BASE_MARKDOWN_SYSTEM_PROMPT
+from models.personas import RolePromptManager
 
 logger = get_logger(__name__)
 
@@ -25,7 +26,7 @@ class StreamEventType(str, Enum):
 class StreamingState(TypedDict):
     messages: List[Dict[str, Any]]
     model: str
-    persona: str
+    persona: int
     language: str
     chat: bool
     think: bool
@@ -121,7 +122,9 @@ async def prepare_streaming_messages_node(state: StreamingState) -> Dict[str, An
     # Add persona/system message if provided
     if state.get("persona"):
         logger.debug(f"prepare_streaming_messages_node: adding persona message for request_id={state.get('request_id')}")
-        messages.append(SystemMessage(content=state["persona"]))
+        manager = RolePromptManager()
+        persona = manager.get_prompt_by_id(state.get("persona"))
+        messages.append(SystemMessage(content=persona.label))
     
     # Process user messages
     for msg in state["messages"]:
@@ -176,11 +179,20 @@ async def streaming_completion_node(state: StreamingState) -> Dict[str, Any]:
         messages = state.get("prepared_messages", state["messages"])
         logger.debug(f"streaming_completion_node: Using {len(messages)} messages for request {request_id}")
 
-        prompt = QUERY_PROCESSOR_PROMPT.format(
-            user_query=messages,
-            context = "",
-            additional_instructions = ""
-        )
+        if state.get("persona"):
+            manager = RolePromptManager()
+            personaPrompt = manager.get_prompt_by_id(state.get("persona"))
+            prompt = QUERY_PROCESSOR_PROMPT.format(
+                user_query=messages,
+                context = personaPrompt,
+                additional_instructions = ""
+            )
+        else : 
+            prompt = QUERY_PROCESSOR_PROMPT.format(
+                user_query=messages,
+                context = "",
+                additional_instructions = ""
+            )
 
         prompt = f"{BASE_MARKDOWN_SYSTEM_PROMPT}\n\n---\n\n{prompt}"
         logger.debug(f"streaming_completion_node: Prompt prepared for request {request_id}")
@@ -253,7 +265,7 @@ async def create_streaming_generator(state: StreamingState) -> AsyncGenerator[st
                 # Wait for next event with timeout
                 event = await asyncio.wait_for(
                     state["stream_queue"].get(),
-                    timeout=30.0
+                    timeout=60.0
                 )
 
                 yield {
